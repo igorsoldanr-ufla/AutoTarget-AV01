@@ -7,7 +7,7 @@ public class CalculosJogoTest {
 
     @Test
     public void testeCalcularDistancia() {
-        // Usamos um triângulo pitagórico clássico (3, 4, 5) para testar
+        // Usei um triângulo pitagórico clássico (3, 4, 5) para testar
         // Ponto A(0,0) e Ponto B(3,4). A distância deve ser exatamente 5.
         float distancia = CalculosJogo.calcularDistancia(0, 0, 3, 4);
 

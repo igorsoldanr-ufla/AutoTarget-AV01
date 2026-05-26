@@ -3,29 +3,37 @@ package com.example.autotarget;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import java.util.List;
 
 public class Canhao extends Thread {
     private float x, y;
     private Jogo jogo;
+    private boolean isEsquerda;
     private float largura = 60f;
     private float altura = 100f;
     private boolean ativo = true;
+    private float xDestino;
 
-    public Canhao(float x, float y, Jogo jogo) {
+    public Canhao(float x, float y, Jogo jogo, boolean isEsquerda) {
         this.x = x;
         this.y = y;
         this.jogo = jogo;
+        this.isEsquerda = isEsquerda;
+        this.xDestino = x;
     }
 
     @Override
     public void run() {
         while (ativo) {
+            moverParaDestino();
+
             Alvo alvoMaisProximo = null;
             float menorDistancia = Float.MAX_VALUE;
 
-            // Busca o alvo mais próximo sincronizando a lista para evitar erros
-            synchronized (jogo.getAlvos()) {
-                for (Alvo alvo : jogo.getAlvos()) {
+            List<Alvo> alvosInimigos = isEsquerda ? jogo.getAlvosEsq() : jogo.getAlvosDir();
+
+            synchronized (alvosInimigos) {
+                for (Alvo alvo : alvosInimigos) {
                     float dx = alvo.getX() - this.x;
                     float dy = alvo.getY() - this.y;
                     float distancia = (float) Math.sqrt(dx * dx + dy * dy);
@@ -37,16 +45,28 @@ public class Canhao extends Thread {
                 }
             }
 
-            // Se encontrou um alvo, atira!
-            if (alvoMaisProximo != null) {
-                // Cria o projétil passando a posição do canhão e do alvo
+            int energiaAtual = isEsquerda ? jogo.getEnergiaEsq() : jogo.getEnergiaDir();
+
+            if (alvoMaisProximo != null && energiaAtual > 0) {
                 Projetil tiro = new Projetil(this.x, this.y, alvoMaisProximo.getX(), alvoMaisProximo.getY());
-                jogo.adicionarProjetil(tiro);
+                if (isEsquerda) {
+                    jogo.getProjeteisEsq().add(tiro);
+                } else {
+                    jogo.getProjeteisDir().add(tiro);
+                }
+                tiro.start();
+            }
+
+            long tempoRecargaBase = 1000;
+            int qtdCanhoesLado = isEsquerda ? jogo.getCanhoesEsq().size() : jogo.getCanhoesDir().size();
+
+            if (qtdCanhoesLado > 5) {
+                int canhoesExtras = qtdCanhoesLado - 5;
+                tempoRecargaBase += (long) (1000 * 0.20 * canhoesExtras);
             }
 
             try {
-                // Tempo de recarga do canhão (atira a cada 1 segundo)
-                Thread.sleep(1000);
+                Thread.sleep(tempoRecargaBase);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -54,8 +74,7 @@ public class Canhao extends Thread {
     }
 
     public void desenhar(Canvas canvas, Paint paint) {
-        paint.setColor(Color.DKGRAY); // Cor cinza escuro para o canhão
-        // Desenha um retângulo representando o canhão, partindo do chão para cima
+        paint.setColor(Color.DKGRAY);
         canvas.drawRect(x - largura / 2, y - altura, x + largura / 2, y, paint);
     }
 
@@ -65,4 +84,27 @@ public class Canhao extends Thread {
 
     public float getX() { return x; }
     public float getY() { return y; }
+
+    public void setXDestino(float xDestino) {
+        this.xDestino = xDestino;
+    }
+
+    private void moverParaDestino() {
+        List<Alvo> alvosInimigos = isEsquerda ? jogo.getAlvosEsq() : jogo.getAlvosDir();
+
+        // Se a referência sumiu (não há alvos), o setpoint se torna a posição atual e ele não se move
+        if (alvosInimigos.isEmpty()) {
+            this.xDestino = this.x;
+            return;
+        }
+
+        float velocidadeMovimento = 3f;
+        if (Math.abs(this.x - xDestino) > velocidadeMovimento) {
+            if (this.x < xDestino) {
+                this.x += velocidadeMovimento;
+            } else {
+                this.x -= velocidadeMovimento;
+            }
+        }
+    }
 }

@@ -5,17 +5,39 @@ import java.util.Collections;
 import java.util.List;
 
 public class Jogo {
-    private List<Alvo> alvos;
-    private List<Canhao> canhoes;
-    private List<Projetil> projeteis;
-    private VerificadorColisao verificadorColisao;
+
+    private int energiaEsq = 100;
+    private int energiaDir = 100;
+    private int abatesEsq = 0;
+    private int abatesDir = 0;
+
+    // Listas do Lado A (Esquerda)
+    private List<Alvo> alvosEsq;
+    private List<Canhao> canhoesEsq;
+    private List<Projetil> projeteisEsq;
+
+    // Listas do Lado B (Direita)
+    private List<Alvo> alvosDir;
+    private List<Canhao> canhoesDir;
+    private List<Projetil> projeteisDir;
+
     private int larguraTela;
     private int alturaTela;
 
+    private VerificadorColisao verificadorColisao;
+    private GerenciadorPartida gerenciadorPartida;
+    private ThreadSensores threadSensores;
+    private ThreadOtimizacao threadOtimizacao;
+    private ThreadIA threadIA;
+
     public Jogo() {
-        alvos = Collections.synchronizedList(new ArrayList<>());
-        canhoes = Collections.synchronizedList(new ArrayList<>());
-        projeteis = Collections.synchronizedList(new ArrayList<>());
+        alvosEsq = Collections.synchronizedList(new ArrayList<>());
+        canhoesEsq = Collections.synchronizedList(new ArrayList<>());
+        projeteisEsq = Collections.synchronizedList(new ArrayList<>());
+
+        alvosDir = Collections.synchronizedList(new ArrayList<>());
+        canhoesDir = Collections.synchronizedList(new ArrayList<>());
+        projeteisDir = Collections.synchronizedList(new ArrayList<>());
     }
 
     public void setDimensoes(int largura, int altura) {
@@ -24,61 +46,127 @@ public class Jogo {
     }
 
     public void iniciarJogo() {
-        alvos.clear();
+        energiaEsq = 100;
+        energiaDir = 100;
+        abatesEsq = 0;
+        abatesDir = 0;
 
-        for (int i = 0; i < 3; i++) {
-            AlvoComum ac = new AlvoComum(0, (float) (Math.random() * alturaTela), larguraTela, alturaTela);
-            alvos.add(ac);
-            ac.start();
-        }
+        // 1. DESTRUIR AS THREADS ANTIGAS
+        for (Alvo a : alvosEsq) a.destruir();
+        for (Alvo a : alvosDir) a.destruir();
 
-        for (int i = 0; i < 2; i++) {
-            float xAleatorio = (float) (Math.random() * larguraTela);
+        for (Canhao c : canhoesEsq) c.destruir();
+        for (Canhao c : canhoesDir) c.destruir();
+
+        for (Projetil p : projeteisEsq) p.destruir();
+        for (Projetil p : projeteisDir) p.destruir();
+
+        // 2. LIMPAR AS LISTAS
+        alvosEsq.clear();
+        alvosDir.clear();
+        canhoesEsq.clear();
+        canhoesDir.clear();
+        projeteisEsq.clear();
+        projeteisDir.clear();
+
+        // Cria alvos do Lado Esquerdo (4 Rápidos e 4 Comuns)
+        for (int i = 0; i < 8; i++) {
+            Alvo alvo;
+            float xAleatorio = (float)(Math.random() * (larguraTela/2));
             float yAleatorio = (float) (Math.random() * alturaTela);
 
-            AlvoRapido ar = new AlvoRapido(xAleatorio, yAleatorio, larguraTela, alturaTela);
-            alvos.add(ar);
-            ar.start();
+            if (i % 2 == 0) {
+                alvo = new AlvoRapido(xAleatorio, yAleatorio, larguraTela, alturaTela);
+            } else {
+                alvo = new AlvoComum(xAleatorio, yAleatorio, larguraTela, alturaTela);
+            }
+            alvosEsq.add(alvo);
+            alvo.start();
         }
 
-        if (verificadorColisao != null) {
-            verificadorColisao.destruir();
+        // Cria alvos do Lado Direito (4 Rápidos e 4 Comuns)
+        for (int i = 0; i < 8; i++) {
+            Alvo alvo;
+            float xAleatorio = (float)(Math.random() * (larguraTela/2)) + (larguraTela/2);
+            float yAleatorio = (float) (Math.random() * alturaTela);
+
+            if (i % 2 == 0) {
+                alvo = new AlvoRapido(xAleatorio, yAleatorio, larguraTela, alturaTela);
+            } else {
+                alvo = new AlvoComum(xAleatorio, yAleatorio, larguraTela, alturaTela);
+            }
+            alvosDir.add(alvo);
+            alvo.start();
         }
 
-        // Inicia a thread que vai monitorar os acertos
+        // Destrói as Threads de Controle Antigas
+        if (verificadorColisao != null) verificadorColisao.destruir();
+        if (threadSensores != null) threadSensores.destruir();
+        if (threadOtimizacao != null) threadOtimizacao.destruir();
+        if (threadIA != null) threadIA.destruir();
+        if (gerenciadorPartida != null) gerenciadorPartida.destruir(); // Adicionado para garantir a limpeza total
+
+        // Inicia as Novas Threads de Controle
+        threadIA = new ThreadIA(this);
+        threadIA.start();
+
+        threadOtimizacao = new ThreadOtimizacao(this);
+        threadOtimizacao.start();
+
+        threadSensores = new ThreadSensores(this);
+        threadSensores.start();
+
         verificadorColisao = new VerificadorColisao(this);
         verificadorColisao.start();
+
+        gerenciadorPartida = new GerenciadorPartida(this);
+        gerenciadorPartida.start();
     }
 
-    public List<Alvo> getAlvos() {
-        return alvos;
-    }
+    public List<Alvo> getAlvosEsq() { return alvosEsq; }
+    public List<Canhao> getCanhoesEsq() { return canhoesEsq; }
+    public List<Projetil> getProjeteisEsq() { return projeteisEsq; }
 
-    public List<Canhao> getCanhoes() {
-        return canhoes;
-    }
+    public List<Alvo> getAlvosDir() { return alvosDir; }
+    public List<Canhao> getCanhoesDir() { return canhoesDir; }
+    public List<Projetil> getProjeteisDir() { return projeteisDir; }
 
-    public List<Projetil> getProjeteis() {
-        return projeteis;
-    }
+    public int getLarguraTela() { return larguraTela; }
 
-    public void adicionarProjetil(Projetil projetil) {
-        projeteis.add(projetil);
-        projetil.start(); // Inicia a thread do tiro
-    }
+    public void adicionarCanhao(boolean isEsquerda) throws JogoException {
+        List<Canhao> listaCanhoes = isEsquerda ? canhoesEsq : canhoesDir;
 
-    public void adicionarCanhao() throws JogoException {
-
-        // Verifica a regra de negócio: limite máximo de 3 canhões
-        if (canhoes.size() >= 3) {
-            throw new JogoException("Limite máximo de 3 canhões atingido!");
+        if (listaCanhoes.size() >= 10) {
+            throw new JogoException("Limite máximo de canhões atingido neste lado!");
         }
 
-        float xAleatorio = (float) (Math.random() * (larguraTela - 100)) + 50;
+        // Se for esquerda, nasce na metade esquerda. Se for direita, nasce na metade direita.
+        float xAleatorio;
+        if (isEsquerda) {
+            xAleatorio = (float) (Math.random() * ((larguraTela / 2f) - 100)) + 50;
+        } else {
+            xAleatorio = (float) (Math.random() * ((larguraTela / 2f) - 100)) + (larguraTela / 2f) + 50;
+        }
+
         float yBase = alturaTela;
 
-        Canhao novoCanhao = new Canhao(xAleatorio, yBase, this);
-        canhoes.add(novoCanhao);
-        novoCanhao.start(); // Inicia a Thread independente deste canhão específico
+        Canhao novoCanhao = new Canhao(xAleatorio, yBase, this, isEsquerda);
+        listaCanhoes.add(novoCanhao);
+        novoCanhao.start();
     }
+
+    public int getEnergiaEsq() { return energiaEsq; }
+    public int getEnergiaDir() { return energiaDir; }
+    public int getAbatesEsq() { return abatesEsq; }
+    public int getAbatesDir() { return abatesDir; }
+
+    public void decrementarEnergiaEsq(int consumo) {
+        energiaEsq = Math.max(0, energiaEsq - consumo); // Não deixa ficar negativo
+    }
+    public void decrementarEnergiaDir(int consumo) {
+        energiaDir = Math.max(0, energiaDir - consumo);
+    }
+
+    public void incrementarAbateEsq() { abatesEsq++; }
+    public void incrementarAbateDir() { abatesDir++; }
 }

@@ -14,10 +14,14 @@ public class VerificadorColisao extends Thread {
     @Override
     public void run() {
         while (ativo) {
-            verificarColisoes();
+            // Verifica colisões para ambos os lados
+            verificarColisoesLado(jogo.getAlvosEsq(), jogo.getProjeteisEsq());
+            verificarColisoesLado(jogo.getAlvosDir(), jogo.getProjeteisDir());
+
+            // Verifica se algum alvo cruzou a linha do meio
+            verificarTransferencias();
 
             try {
-                // Checa as colisões a cada 30ms (acompanhando o FPS do jogo)
                 Thread.sleep(30);
             } catch (InterruptedException e) {
                 e.printStackTrace();
@@ -25,16 +29,10 @@ public class VerificadorColisao extends Thread {
         }
     }
 
-    private void verificarColisoes() {
-        List<Projetil> projeteis = jogo.getProjeteis();
-        List<Alvo> alvos = jogo.getAlvos();
-
-        // REGIÃO CRÍTICA: Bloqueia a lista de alvos e projéteis para modificação simultânea
+    private void verificarColisoesLado(List<Alvo> alvos, List<Projetil> projeteis) {
         synchronized (alvos) {
             synchronized (projeteis) {
-                // Usamos Iterator para poder remover elementos das listas de forma segura
                 Iterator<Projetil> itProjetil = projeteis.iterator();
-
                 while (itProjetil.hasNext()) {
                     Projetil p = itProjetil.next();
                     boolean acertou = false;
@@ -42,26 +40,56 @@ public class VerificadorColisao extends Thread {
                     Iterator<Alvo> itAlvo = alvos.iterator();
                     while (itAlvo.hasNext()) {
                         Alvo a = itAlvo.next();
-
-                        // Cálculo da distância euclidiana entre o centro do tiro e o centro do alvo
                         float dx = p.getX() - a.getX();
                         float dy = p.getY() - a.getY();
                         float distancia = (float) Math.sqrt(dx * dx + dy * dy);
 
-                        // Se a distância for menor que a soma dos raios, houve colisão!
-                        // Adicionamos 10 (raio do projetil) + raio do alvo
                         if (distancia < (10f + a.getRaio())) {
-                            a.destruir(); // Para a thread do alvo
-                            itAlvo.remove(); // Remove o alvo da lista
+                            a.destruir();
+                            itAlvo.remove();
                             acertou = true;
-                            break; // Se acertou, não precisa checar esse projétil contra outros alvos
+                            if (alvos == jogo.getAlvosEsq()) {
+                                jogo.incrementarAbateEsq();
+                            } else {
+                                jogo.incrementarAbateDir();
+                            }
+                            break;
                         }
                     }
 
-                    // Se o projétil acertou ou saiu da tela, ele morre e é removido da lista
                     if (acertou || !p.isAtivo()) {
-                        p.destruir(); // Para a thread do projétil
+                        p.destruir();
                         itProjetil.remove();
+                    }
+                }
+            }
+        }
+    }
+
+    private void verificarTransferencias() {
+        float meioTela = jogo.getLarguraTela() / 2f;
+
+        // REGIÃO CRÍTICA: Bloqueia ambas as listas por ordem
+        synchronized (jogo.getAlvosEsq()) {
+            synchronized (jogo.getAlvosDir()) {
+
+                // Da Esquerda para a Direita
+                Iterator<Alvo> itEsq = jogo.getAlvosEsq().iterator();
+                while (itEsq.hasNext()) {
+                    Alvo a = itEsq.next();
+                    if (a.getX() > meioTela) { // Cruzou o meio
+                        itEsq.remove();
+                        jogo.getAlvosDir().add(a);
+                    }
+                }
+
+                // Da Direita para a Esquerda
+                Iterator<Alvo> itDir = jogo.getAlvosDir().iterator();
+                while (itDir.hasNext()) {
+                    Alvo a = itDir.next();
+                    if (a.getX() < meioTela) { // Cruzou o meio
+                        itDir.remove();
+                        jogo.getAlvosEsq().add(a);
                     }
                 }
             }
