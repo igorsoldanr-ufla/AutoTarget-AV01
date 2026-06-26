@@ -57,12 +57,20 @@ public class Canhao extends Thread {
                 tiro.start();
             }
 
+            // --- LÓGICA DE TEMPO DE RECARGA ---
             long tempoRecargaBase = 1000;
             int qtdCanhoesLado = isEsquerda ? jogo.getCanhoesEsq().size() : jogo.getCanhoesDir().size();
 
+            // 1. Penalidade por sobrecarga de unidades (AV2)
             if (qtdCanhoesLado > 5) {
                 int canhoesExtras = qtdCanhoesLado - 5;
                 tempoRecargaBase += (long) (1000 * 0.20 * canhoesExtras);
+            }
+
+            // 2. NOVO: Termóstato de Segurança (Sistema Ciberfísico - AV3)
+            // Se a temperatura do sistema passar de 40ºC, força um arrefecimento de +2 segundos
+            if (jogo.getTemperatura() > 40.0) {
+                tempoRecargaBase += 2000;
             }
 
             try {
@@ -74,7 +82,12 @@ public class Canhao extends Thread {
     }
 
     public void desenhar(Canvas canvas, Paint paint) {
-        paint.setColor(Color.DKGRAY);
+        // Muda a cor visual do canhão para vermelho se estiver sobreaquecido
+        if (jogo.getTemperatura() > 40.0) {
+            paint.setColor(Color.RED);
+        } else {
+            paint.setColor(Color.DKGRAY);
+        }
         canvas.drawRect(x - largura / 2, y - altura, x + largura / 2, y, paint);
     }
 
@@ -92,13 +105,18 @@ public class Canhao extends Thread {
     private void moverParaDestino() {
         List<Alvo> alvosInimigos = isEsquerda ? jogo.getAlvosEsq() : jogo.getAlvosDir();
 
-        // Se a referência sumiu (não há alvos), o setpoint se torna a posição atual e ele não se move
         if (alvosInimigos.isEmpty()) {
             this.xDestino = this.x;
             return;
         }
 
         float velocidadeMovimento = 3f;
+
+        // Se estiver em modo de arrefecimento térmico (>40ºC), o motor também fica mais lento
+        if (jogo.getTemperatura() > 40.0) {
+            velocidadeMovimento = 1f;
+        }
+
         if (Math.abs(this.x - xDestino) > velocidadeMovimento) {
             if (this.x < xDestino) {
                 this.x += velocidadeMovimento;

@@ -1,5 +1,6 @@
 package com.example.autotarget;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.view.View;
@@ -9,6 +10,16 @@ import android.widget.FrameLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import android.widget.TextView;
 import android.widget.Toast;
+
+// Novos Imports para o Firebase e Concorrência (AV3)
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -55,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         Button btnIniciar = findViewById(R.id.btnIniciar);
         Button btnAddCanhaoEsq = findViewById(R.id.btnAdicionarCanhaoEsq);
         Button btnAddCanhaoDir = findViewById(R.id.btnAdicionarCanhaoDir);
+        Button btnRanking = findViewById(R.id.btnRanking); // <-- REFERÊNCIA DO NOVO BOTÃO
 
         // Configuração dos cliques (Listeners)
         btnIniciar.setOnClickListener(v -> {
@@ -77,6 +89,12 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+
+        // <-- LÓGICA DE CLIQUE DO BOTÃO DE RANKING -->
+        btnRanking.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, RankingActivity.class);
+            startActivity(intent);
+        });
     } // Fim do onCreate
 
     private void iniciarTimer() {
@@ -96,7 +114,42 @@ public class MainActivity extends AppCompatActivity {
 
             public void onFinish() {
                 txtTempo.setText("FIM");
+                salvarPartidaNoFirebase(); // <-- CHAMADA PARA GRAVAR DADOS ADICIONADA AQUI
             }
         }.start();
+    }
+
+    // NOVO MÉTODO: Grava os dados da partida na Nuvem de forma assíncrona
+    private void salvarPartidaNoFirebase() {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) return;
+
+        // 1. Segurança Ciberfísica: Ocultar a identidade do jogador
+        String emailOriginal = user.getEmail();
+        String emailEncriptado = CriptografiaAES.encriptar(emailOriginal);
+
+        // 2. Preparar o pacote de dados (JSON/Map)
+        Map<String, Object> partida = new HashMap<>();
+        partida.put("jogador_encriptado", emailEncriptado);
+        partida.put("abates_esquerda", jogo.getAbatesEsq());
+        partida.put("abates_direita", jogo.getAbatesDir());
+        partida.put("timestamp", FieldValue.serverTimestamp()); // Hora exata do servidor
+
+        // 3. Concorrência: Enviar para a cloud usando uma Thread separada (ExecutorService)
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.execute(() -> {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            db.collection("partidas").add(partida)
+                    .addOnSuccessListener(documentReference -> {
+                        // Executado se a gravação for um sucesso (Volta para a Thread da UI para mostrar o Toast)
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "Partida gravada na Cloud!", Toast.LENGTH_SHORT).show());
+                    })
+                    .addOnFailureListener(e -> {
+                        // Executado em caso de falha de rede
+                        e.printStackTrace();
+                    });
+        });
+
+        executor.shutdown();
     }
 }

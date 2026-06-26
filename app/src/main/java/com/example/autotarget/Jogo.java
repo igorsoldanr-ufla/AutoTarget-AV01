@@ -11,6 +11,9 @@ public class Jogo {
     private int abatesEsq = 0;
     private int abatesDir = 0;
 
+    // NOVO: Variável Ciberfísica (Temperatura do Sistema)
+    private double temperaturaSistema = 35.0;
+
     // Listas do Lado A (Esquerda)
     private List<Alvo> alvosEsq;
     private List<Canhao> canhoesEsq;
@@ -29,6 +32,7 @@ public class Jogo {
     private ThreadSensores threadSensores;
     private ThreadOtimizacao threadOtimizacao;
     private ThreadIA threadIA;
+    private ThreadTelemetria threadTelemetria; // NOVO: Thread de Telemetria
 
     public Jogo() {
         alvosEsq = Collections.synchronizedList(new ArrayList<>());
@@ -45,11 +49,16 @@ public class Jogo {
         this.alturaTela = altura;
     }
 
+    // NOVO: Getters e Setters de Temperatura
+    public double getTemperatura() { return temperaturaSistema; }
+    public void setTemperatura(double temperatura) { this.temperaturaSistema = temperatura; }
+
     public void iniciarJogo() {
         energiaEsq = 100;
         energiaDir = 100;
         abatesEsq = 0;
         abatesDir = 0;
+        temperaturaSistema = 35.0; // Reinicia a temperatura a cada nova partida
 
         // 1. DESTRUIR AS THREADS ANTIGAS
         for (Alvo a : alvosEsq) a.destruir();
@@ -104,7 +113,8 @@ public class Jogo {
         if (threadSensores != null) threadSensores.destruir();
         if (threadOtimizacao != null) threadOtimizacao.destruir();
         if (threadIA != null) threadIA.destruir();
-        if (gerenciadorPartida != null) gerenciadorPartida.destruir(); // Adicionado para garantir a limpeza total
+        if (gerenciadorPartida != null) gerenciadorPartida.destruir();
+        if (threadTelemetria != null) threadTelemetria.destruir(); // NOVO: Limpeza da telemetria antiga
 
         // Inicia as Novas Threads de Controle
         threadIA = new ThreadIA(this);
@@ -121,6 +131,10 @@ public class Jogo {
 
         gerenciadorPartida = new GerenciadorPartida(this);
         gerenciadorPartida.start();
+
+        // NOVO: Iniciar a captura de telemetria
+        threadTelemetria = new ThreadTelemetria(this);
+        threadTelemetria.start();
     }
 
     public List<Alvo> getAlvosEsq() { return alvosEsq; }
