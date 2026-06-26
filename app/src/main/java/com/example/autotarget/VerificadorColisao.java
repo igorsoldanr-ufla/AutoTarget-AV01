@@ -40,19 +40,16 @@ public class VerificadorColisao extends Thread {
                     Iterator<Alvo> itAlvo = alvos.iterator();
                     while (itAlvo.hasNext()) {
                         Alvo a = itAlvo.next();
-                        float dx = p.getX() - a.getX();
-                        float dy = p.getY() - a.getY();
-                        float distancia = (float) Math.sqrt(dx * dx + dy * dy);
 
-                        if (distancia < (10f + a.getRaio())) {
+                        // Substituição pelo cálculo unificado
+                        float distancia = CalculosJogo.calcularDistancia(p.getX(), p.getY(), a.getX(), a.getY());
+
+                        if (CalculosJogo.verificarColisao(distancia, a.getRaio(), p.getRaio())) {
                             a.destruir();
                             itAlvo.remove();
                             acertou = true;
-                            if (alvos == jogo.getAlvosEsq()) {
-                                jogo.incrementarAbateEsq();
-                            } else {
-                                jogo.incrementarAbateDir();
-                            }
+                            if (alvos == jogo.getAlvosEsq()) jogo.incrementarAbateEsq();
+                            else jogo.incrementarAbateDir();
                             break;
                         }
                     }

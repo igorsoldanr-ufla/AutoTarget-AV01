@@ -58,4 +58,5 @@ public class Projetil extends Thread {
     public boolean isAtivo() { return ativo; }
     public float getX() { return x; }
     public float getY() { return y; }
+    public float getRaio() { return raio; }
 }

@@ -34,9 +34,8 @@ public class Canhao extends Thread {
 
             synchronized (alvosInimigos) {
                 for (Alvo alvo : alvosInimigos) {
-                    float dx = alvo.getX() - this.x;
-                    float dy = alvo.getY() - this.y;
-                    float distancia = (float) Math.sqrt(dx * dx + dy * dy);
+                    // Substituição pelo cálculo unificado
+                    float distancia = CalculosJogo.calcularDistancia(this.x, this.y, alvo.getX(), alvo.getY());
 
                     if (distancia < menorDistancia) {
                         menorDistancia = distancia;
