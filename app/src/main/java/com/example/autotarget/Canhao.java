@@ -66,7 +66,7 @@ public class Canhao extends Thread {
                 tempoRecargaBase += (long) (1000 * 0.20 * canhoesExtras);
             }
 
-            // 2. NOVO: Termóstato de Segurança (Sistema Ciberfísico - AV3)
+            // 2. NOVO: Termóstato de Segurança
             // Se a temperatura do sistema passar de 40ºC, força um arrefecimento de +2 segundos
             if (jogo.getTemperatura() > 40.0) {
                 tempoRecargaBase += 2000;

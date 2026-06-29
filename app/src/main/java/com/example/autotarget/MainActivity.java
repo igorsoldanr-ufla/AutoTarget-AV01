@@ -40,6 +40,8 @@ public class MainActivity extends AppCompatActivity {
                 | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
         decorView.setSystemUiVisibility(uiOptions);
 
+        BenchmarkAmdahl.executarTesteBaterias();
+
         jogo = new Jogo();
 
         FrameLayout container = findViewById(R.id.gameContainer);
